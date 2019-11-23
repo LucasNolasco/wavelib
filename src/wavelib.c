@@ -1832,6 +1832,86 @@ void idwt(wt_object wt, double *dwtop) {
 
 }
 
+void wrcoef(wt_object wt, double *dwtop, const char* mode, int level)
+{
+	int J,U,i,lf,N,N2,iter,k;
+	int app_len, det_len;
+	double *cA_up, *X_lp, *X_hp,*out,*temp;
+
+	J = wt->J;
+	U = 2;
+	app_len = wt->length[0];
+	out = (double*)malloc(sizeof(double)* (wt->siglength + 1));
+
+	if (!strcmp(wt->ext, "sym") && (!strcmp(wt->cmethod, "fft") || !strcmp(wt->cmethod, "FFT"))) {
+		lf = wt->wave->lpd_len;// lpd and hpd have the same length
+
+		N = 2 * wt->length[J] - 1;
+		cA_up = (double*)malloc(sizeof(double)* N);
+		X_lp = (double*)malloc(sizeof(double)* (N + lf - 1));
+		X_hp = (double*)malloc(sizeof(double)* (N + lf - 1));
+
+		for (i = 0; i < app_len; ++i) {
+			out[i] = wt->output[i];
+		}
+
+		iter = app_len;
+
+		det_len = wt->length[level + 1];
+		upsamp(out, det_len, U, cA_up);
+		N2 = 2 * wt->length[level + 1] - 1;
+
+		if (wt->wave->lpr_len == wt->wave->hpr_len && (!strcmp(wt->cmethod, "fft") || !strcmp(wt->cmethod, "FFT"))) {
+			wt->cobj = conv_init(N2, lf);
+			wt->cfftset = 1;
+		}
+		else if (!(wt->wave->lpr_len == wt->wave->hpr_len)) {
+			printf("Decomposition Filters must have the same length.");
+			exit(-1);
+		}
+
+		printf("\nHPR len: %d, LPR len: %d, SIGNAL len: %d\n", wt->wave->hpr_len, wt->wave->lpr_len, wt->siglength);
+
+		wconv(wt, cA_up, N2, wt->wave->lpr, lf, X_lp);
+
+		upsamp(wt->output + iter, det_len, U, cA_up);
+
+		wconv(wt, cA_up, N2, wt->wave->hpr, lf, X_hp);
+
+		/*
+		for (k = lf - 2; k < N2 + 1; ++k) {
+			out[k - lf + 2] = X_lp[k] + X_hp[k];
+		}
+		*/
+
+		printf("SIZE: %d\n", N2 + 1 - lf + 2);
+
+		iter += det_len;
+		if (wt->wave->lpr_len == wt->wave->hpr_len && (!strcmp(wt->cmethod, "fft") || !strcmp(wt->cmethod, "FFT"))) {
+			free_conv(wt->cobj);
+			wt->cfftset = 0;
+		}
+
+		for (i = lf - 2; i < N2 + 1; ++i) 
+		{
+			if(!strcmp(mode, "a"))	
+				dwtop[i - lf + 2] = X_lp[i];
+			else if(!strcmp(mode, "d"))
+				dwtop[i - lf + 2] = X_hp[i];
+		}
+
+		free(cA_up);
+		free(X_lp);
+		free(X_hp);
+	}
+	else
+	{
+		printf("This configuration is not supported by wrcoef\n");
+	}
+
+	free(out);	
+}
+
 static void idwpt_per(wpt_object wt, double *cA, int len_cA, double *cD, double *X) {
 	int len_avg, i, l, m, n, t, l2;
 

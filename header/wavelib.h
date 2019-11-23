@@ -216,6 +216,8 @@ void dwt(wt_object wt, const double *inp);
 
 void idwt(wt_object wt, double *dwtop);
 
+void wrcoef(wt_object wt, double *dwtop, const char* mode, int level);
+
 double *getDWTmra(wt_object wt, double *wavecoeffs);
 
 void wtree(wtree_object wt, const double *inp);

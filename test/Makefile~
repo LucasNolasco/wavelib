@@ -1,0 +1,4 @@
+all:
+	gcc -c ../src/*.c
+	gcc -shared -o libwavelib.dll *.o
+	gcc -o teste.exe dwttest.c -L. -llibwavelib

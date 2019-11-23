@@ -57,7 +57,7 @@ int main() {
 
 	wt = wt_init(obj, "dwt", N, J);// Initialize the wavelet transform object
 	setDWTExtension(wt, "sym");// Options are "per" and "sym". Symmetric is the default option
-	setWTConv(wt, "fft");
+	setWTConv(wt, "direct");
 	
 	dwt(wt, inp);// Perform DWT
 	//DWT output can be accessed using wt->output vector. Use wt_summary to find out how to extract appx and detail coefficients
@@ -66,17 +66,11 @@ int main() {
 		printf("%g ",wt->output[i]);
 	}
 	
-	wrcoef(wt, out, "a", 2);// Perform IDWT (if needed)
-
-	FILE* output_file = fopen("dwt_output.txt", "w");
-	
+	idwt(wt, out);// Perform IDWT (if needed)
 	// Test Reconstruction
 	for (i = 0; i < wt->siglength; ++i) {
 		diff[i] = out[i] - inp[i];
-		fprintf(output_file, "%g \n", out[i]);
 	}
-
-	fclose(output_file);
 	
 	printf("\n MAX %g \n", absmax(diff, wt->siglength)); // If Reconstruction succeeded then the output should be a small value.
 	
@@ -87,6 +81,5 @@ int main() {
 	free(inp);
 	free(out);
 	free(diff);
-
 	return 0;
 }
