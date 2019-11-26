@@ -1623,7 +1623,7 @@ static void idwt1(wt_object wt,double *temp, double *cA_up,double *cA, int len_c
 	N = 2 * len_cD;
 	U = 2;
 
-	upsamp2(cA, len_cA, U, cA_up);
+	upsamp2(cA, len_cA, U, cA_up); // cA_up = cA com upsampling de 2
 
 	per_ext(cA_up, 2 * len_cA, len_avg / 2, temp);
 
@@ -1667,7 +1667,6 @@ static void idwt_per(wt_object wt, double *cA, int len_cA, double *cD, double *X
 static void idwt_sym(wt_object wt, double *cA, int len_cA, double *cD, double *X) {
 	idwt_sym_stride(cA,len_cA,cD, wt->wave->lpr, wt->wave->hpr, wt->wave->lpr_len, X,1,1);
 }
-
 
 void idwt(wt_object wt, double *dwtop) {
 	int J,U,i,lf,N,N2,iter,k;
@@ -1837,11 +1836,14 @@ void wrcoef(wt_object wt, double *dwtop, const char* mode, int level)
 	int J,U,i,lf,N,N2,iter,k;
 	int app_len, det_len;
 	double *cA_up, *X_lp, *X_hp,*out,*temp;
+	int final_len;
 
 	J = wt->J;
 	U = 2;
 	app_len = wt->length[0];
 	out = (double*)malloc(sizeof(double)* (wt->siglength + 1));
+	
+	level = J - level;
 
 	if (!strcmp(wt->ext, "sym") && (!strcmp(wt->cmethod, "fft") || !strcmp(wt->cmethod, "FFT"))) {
 		lf = wt->wave->lpd_len;// lpd and hpd have the same length
@@ -1857,59 +1859,67 @@ void wrcoef(wt_object wt, double *dwtop, const char* mode, int level)
 
 		iter = app_len;
 
-		det_len = wt->length[level + 1];
-		upsamp(out, det_len, U, cA_up);
-		N2 = 2 * wt->length[level + 1] - 1;
-
-		if (wt->wave->lpr_len == wt->wave->hpr_len && (!strcmp(wt->cmethod, "fft") || !strcmp(wt->cmethod, "FFT"))) {
-			wt->cobj = conv_init(N2, lf);
-			wt->cfftset = 1;
-		}
-		else if (!(wt->wave->lpr_len == wt->wave->hpr_len)) {
-			printf("Decomposition Filters must have the same length.");
-			exit(-1);
-		}
-
-		printf("\nHPR len: %d, LPR len: %d, SIGNAL len: %d\n", wt->wave->hpr_len, wt->wave->lpr_len, wt->siglength);
-
-		wconv(wt, cA_up, N2, wt->wave->lpr, lf, X_lp);
-
-		upsamp(wt->output + iter, det_len, U, cA_up);
-
-		wconv(wt, cA_up, N2, wt->wave->hpr, lf, X_hp);
-
-		/*
-		for (k = lf - 2; k < N2 + 1; ++k) {
-			out[k - lf + 2] = X_lp[k] + X_hp[k];
-		}
-		*/
-
-		printf("SIZE: %d\n", N2 + 1 - lf + 2);
-
-		iter += det_len;
-		if (wt->wave->lpr_len == wt->wave->hpr_len && (!strcmp(wt->cmethod, "fft") || !strcmp(wt->cmethod, "FFT"))) {
-			free_conv(wt->cobj);
-			wt->cfftset = 0;
-		}
-
-		for (i = lf - 2; i < N2 + 1; ++i) 
+		for(i = 0; i < J; i++)
 		{
-			if(!strcmp(mode, "a"))	
-				dwtop[i - lf + 2] = X_lp[i];
-			else if(!strcmp(mode, "d"))
-				dwtop[i - lf + 2] = X_hp[i];
+			det_len = wt->length[i + 1];
+			upsamp(out, det_len, U, cA_up);
+			N2 = 2 * wt->length[i + 1] - 1;
+
+			if (wt->wave->lpr_len == wt->wave->hpr_len && (!strcmp(wt->cmethod, "fft") || !strcmp(wt->cmethod, "FFT"))) {
+				wt->cobj = conv_init(N2, lf);
+				wt->cfftset = 1;
+			}
+
+			else if (!(wt->wave->lpr_len == wt->wave->hpr_len)) {
+				printf("Decomposition Filters must have the same length.");
+				exit(-1);
+			}
+
+			wconv(wt, cA_up, N2, wt->wave->lpr, lf, X_lp);
+
+			upsamp(wt->output + iter, det_len, U, cA_up);
+
+			wconv(wt, cA_up, N2, wt->wave->hpr, lf, X_hp);
+
+			final_len = det_len * U;
+
+			for (k = lf - 2; k < N2 + 1; ++k) {
+				if(i > level)
+				{
+					out[k - lf + 2] = X_lp[k];
+				}
+				else if(!strcmp(mode, "a"))
+				{
+					out[k - lf + 2] = X_lp[k];
+				}
+				else if(!strcmp(mode, "d"))
+				{
+					out[k - lf + 2] = X_hp[k];
+				}
+			}
+			
+			iter += det_len;
+			if (wt->wave->lpr_len == wt->wave->hpr_len && (!strcmp(wt->cmethod, "fft") || !strcmp(wt->cmethod, "FFT"))) {
+				free_conv(wt->cobj);
+				wt->cfftset = 0;
+			}
 		}
 
 		free(cA_up);
 		free(X_lp);
 		free(X_hp);
 	}
+	
 	else
 	{
-		printf("This configuration is not supported by wrcoef\n");
+		printf("Not a supported configuration\n");
 	}
 
-	free(out);	
+	for (i = 0; i < wt->siglength; ++i) {
+		dwtop[i] = out[i];
+	}
+
+	free(out);
 }
 
 static void idwpt_per(wpt_object wt, double *cA, int len_cA, double *cD, double *X) {

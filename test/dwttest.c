@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "../header/wavelib.h"
+#include "..\header\wavelib.h"
 
 double absmax(double *array, int N) {
 	double max;
@@ -38,6 +38,7 @@ int main() {
 	}
 	while (!feof(ifp)) {
 		fscanf(ifp, "%lf \n", &temp[i]);
+		//printf("%lf \n", temp[i]);
 		i++;
 	}
 	N = 256;
@@ -62,20 +63,21 @@ int main() {
 	dwt(wt, inp);// Perform DWT
 	//DWT output can be accessed using wt->output vector. Use wt_summary to find out how to extract appx and detail coefficients
 	
+	FILE* output_file = fopen("dwt_output_file_d2.txt", "w");
+	
 	for (i = 0; i < wt->outlength; ++i) {
 		printf("%g ",wt->output[i]);
 	}
 	
-	wrcoef(wt, out, "a", 2);// Perform IDWT (if needed)
-
-	FILE* output_file = fopen("dwt_output.txt", "w");
+	//wt->J = 1;
 	
+	wrcoef(wt, out, "d", 2);// Perform IDWT (if needed)
 	// Test Reconstruction
 	for (i = 0; i < wt->siglength; ++i) {
 		diff[i] = out[i] - inp[i];
 		fprintf(output_file, "%g \n", out[i]);
 	}
-
+	
 	fclose(output_file);
 	
 	printf("\n MAX %g \n", absmax(diff, wt->siglength)); // If Reconstruction succeeded then the output should be a small value.
@@ -87,6 +89,5 @@ int main() {
 	free(inp);
 	free(out);
 	free(diff);
-
 	return 0;
 }
